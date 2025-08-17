@@ -313,188 +313,191 @@ void ULSSessionSubsystemOSSv2::DrawImGui()
 	if (!GetWorld())
 		return;
 	
-	static bool bShowWindow = true;
-	if (ImGui::Begin("Session Subsystem", &bShowWindow, 0))
+	if (const ImGui::FScopedContext ScopedContext; ScopedContext)
 	{
-		if (OnlineServices)
-			ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("OnlineServices ServicesProvider: %s"), LexToString(OnlineServices->GetServicesProvider()))));
-		else
-			ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("OnlineServices ServicesProvider: None"))));
-	
-		if (ImGui::TreeNodeEx("Auth", ImGuiTreeNodeFlags_DefaultOpen))
+		static bool bShowWindow = true;
+		if (ImGui::Begin("Session Subsystem", &bShowWindow, 0))
 		{
-			if (AuthService)
+			if (OnlineServices)
+				ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("OnlineServices ServicesProvider: %s"), LexToString(OnlineServices->GetServicesProvider()))));
+			else
+				ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("OnlineServices ServicesProvider: None"))));
+	
+			if (ImGui::TreeNodeEx("Auth", ImGuiTreeNodeFlags_DefaultOpen))
 			{
-				TOnlineResult<FAuthGetAllLocalOnlineUsers> GetAllLocalOnlineUsersResult = AuthService->GetAllLocalOnlineUsers(FAuthGetAllLocalOnlineUsers::Params {});
-				if (!GetAllLocalOnlineUsersResult.IsOk())
+				if (AuthService)
 				{
-					ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Error during GetAllLocalOnlineUsers %s"), *ToLogString(GetAllLocalOnlineUsersResult.GetErrorValue()))));
-				}
-				else
-				{
-					const TArray<TSharedRef<FAccountInfo>>& AccountInfos = GetAllLocalOnlineUsersResult.GetOkValue().AccountInfo;
-					if (AccountInfos.IsEmpty())
+					TOnlineResult<FAuthGetAllLocalOnlineUsers> GetAllLocalOnlineUsersResult = AuthService->GetAllLocalOnlineUsers(FAuthGetAllLocalOnlineUsers::Params {});
+					if (!GetAllLocalOnlineUsersResult.IsOk())
 					{
-						ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("GetAllLocalOnlineUsers returned 0 users"))));
+						ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Error during GetAllLocalOnlineUsers %s"), *ToLogString(GetAllLocalOnlineUsersResult.GetErrorValue()))));
 					}
 					else
 					{
-						for (const auto& AccountInfo : AccountInfos)
+						const TArray<TSharedRef<FAccountInfo>>& AccountInfos = GetAllLocalOnlineUsersResult.GetOkValue().AccountInfo;
+						if (AccountInfos.IsEmpty())
 						{
-							if (ImGui::TreeNodeEx(TCHAR_TO_UTF8(*FString::Printf(TEXT("AccountInfo %s %s"), *GetUserDisplayName(AccountInfo->AccountId), *ToLogString(AccountInfo->AccountId))), ImGuiTreeNodeFlags_DefaultOpen))
-							{
-								ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("PlatformUserId: %d"), AccountInfo->PlatformUserId.GetInternalId())));
-								ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("LoginStatus: %s"), LexToString(AccountInfo->LoginStatus))));
-								for (const auto& Attribute : AccountInfo->Attributes)
-								{
-									ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("%s: %s"), *Attribute.Key.ToString(), *Attribute.Value.ToLogString())));
-								}
-								ImGui::TreePop();
-							}
+							ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("GetAllLocalOnlineUsers returned 0 users"))));
 						}
-					}
-				}
-			}
-			else
-			{
-				ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Auth service is unavailable"))));
-			}
-			ImGui::TreePop();
-		}
-
-		ImGui::Separator();
-
-		if (ImGui::TreeNodeEx("Connectivity", ImGuiTreeNodeFlags_DefaultOpen))
-		{
-			if (ConnectivityService)
-			{
-				TOnlineResult<FGetConnectionStatus> GetConnectionStatusResult = ConnectivityService->GetConnectionStatus(FGetConnectionStatus::Params {});
-				if (!GetConnectionStatusResult.IsOk())
-				{
-					ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Error during GetGetConnectionStatus %s"), *ToLogString(GetConnectionStatusResult.GetErrorValue()))));
-				}
-				else
-				{
-					const EOnlineServicesConnectionStatus ConnectionStatus = GetConnectionStatusResult.GetOkValue().Status;
-					if (ConnectionStatus == EOnlineServicesConnectionStatus::Connected)
-					{
-						ImGui::TextColored(FColorToImVec4(FColorList::Green), TCHAR_TO_UTF8(*FString::Printf(TEXT("Connected"))));
-					}
-					else if (ConnectionStatus == EOnlineServicesConnectionStatus::NotConnected)
-					{
-						ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Not Connected"))));
-					}
-				}
-			}
-			else
-			{
-				ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Connectivity service is unavailable"))));
-			}
-	
-			ImGui::TreePop();
-		}
-
-		ImGui::Separator();
-
-		const FAccountId LocalAccountId = GetLocalAccountId();
-		if (LocalAccountId.IsValid())
-		{
-			if (ImGui::TreeNodeEx("Lobbies", ImGuiTreeNodeFlags_DefaultOpen))
-			{
-				check(LobbiesService);
-				TOnlineResult<FGetJoinedLobbies> JoinedLobbiesResult = LobbiesService->GetJoinedLobbies(FGetJoinedLobbies::Params { LocalAccountId });
-				if (!JoinedLobbiesResult.IsOk())
-				{
-					ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Error during GetJoinedLobbies %s"), *ToLogString(JoinedLobbiesResult.GetErrorValue()))));
-				}
-				else
-				{
-					const TArray<TSharedRef<const FLobby>>& Lobbies = JoinedLobbiesResult.GetOkValue().Lobbies;
-					if (Lobbies.IsEmpty())
-					{
-						ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("GetJoinedLobbies returned 0 lobbies"))));
-					}
-					else
-					{
-						for (const auto& Lobby : Lobbies)
+						else
 						{
-							if (ImGui::TreeNodeEx(TCHAR_TO_UTF8(*FString::Printf(TEXT("Lobby %s %s"), *Lobby->LocalName.ToString(), *ToLogString(Lobby->LobbyId))), ImGuiTreeNodeFlags_DefaultOpen))
+							for (const auto& AccountInfo : AccountInfos)
 							{
-								ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("LocalName: %s"), *Lobby->LocalName.ToString())));
-								ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("OwnerAccountId: %s"), *ToLogString(Lobby->OwnerAccountId))));
-								ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("SchemaId: %s"), *Lobby->SchemaId.ToString())));
-								for (const auto& Attribute : Lobby->Attributes)
+								if (ImGui::TreeNodeEx(TCHAR_TO_UTF8(*FString::Printf(TEXT("AccountInfo %s %s"), *GetUserDisplayName(AccountInfo->AccountId), *ToLogString(AccountInfo->AccountId))), ImGuiTreeNodeFlags_DefaultOpen))
 								{
-									ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("%s: %s"), *Attribute.Key.ToString(), *Attribute.Value.ToLogString())));
-								}
-								if (ImGui::TreeNodeEx(TCHAR_TO_UTF8(*FString::Printf(TEXT("Members: %d"), Lobby->Members.Num())), ImGuiTreeNodeFlags_DefaultOpen))
-								{
-									TArray<FAccountId> AllAccountIds;
-									Lobby->Members.GetKeys(AllAccountIds);
-							
-									// start the async query for all of the user info and presence. we won't get the result this frame but that is okay.
-									// we shouldn't need to do this every frame, only if we can't get the info for some of the users.
-									// also, we should start this query from the session code when a new member joins the lobby.
-									if (UserInfoService)
-										UserInfoService->QueryUserInfo(FQueryUserInfo::Params {LocalAccountId, AllAccountIds});
-									// if (PresenceService)
-									// 	PresenceService->BatchQueryPresence(FBatchQueryPresence::Params { LocalAccountId, AllAccountIds, false });
-						
-									for	(const auto& Member : Lobby->Members)
+									ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("PlatformUserId: %d"), AccountInfo->PlatformUserId.GetInternalId())));
+									ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("LoginStatus: %s"), LexToString(AccountInfo->LoginStatus))));
+									for (const auto& Attribute : AccountInfo->Attributes)
 									{
-										const FAccountId AccountId = Member.Key;
-										if (ImGui::TreeNodeEx(TCHAR_TO_UTF8(*FString::Printf(TEXT("Member %s %s"), *GetUserDisplayName(AccountId), *ToLogString(AccountId))), ImGuiTreeNodeFlags_DefaultOpen))
-										{
-											ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("bIsLocalMember: %d"), Member.Value->bIsLocalMember)));
-											for (const auto& Attribute : Member.Value->Attributes)
-											{
-												ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("%s: %s"), *Attribute.Key.ToString(), *Attribute.Value.ToLogString())));
-											}
-
-											if (ImGui::TreeNodeEx(TCHAR_TO_UTF8(*FString::Printf(TEXT("Presence"))), ImGuiTreeNodeFlags_DefaultOpen))
-											{
-												if (PresenceService)
-												{
-													const TOnlineResult<FGetCachedPresence> GetCachedPresenceResult = PresenceService->GetCachedPresence(FGetCachedPresence::Params {LocalAccountId, AccountId});
-													if (GetCachedPresenceResult.IsOk())
-													{
-														const TSharedRef<const FUserPresence>& Presence = GetCachedPresenceResult.GetOkValue().Presence;
-														ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("Status: %s"), LexToString(Presence->Status))));
-														ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("GameStatus: %s"), LexToString(Presence->GameStatus))));
-														ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("Joinability %s"), LexToString(Presence->Joinability))));
-														ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("StatusString %s"), *Presence->StatusString)));
-														ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("RichPresenceString %s"), *Presence->RichPresenceString)));
-														for (const auto& Property : Presence->Properties)
-														{
-															ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("%s: %s"), *Property.Key, *Property.Value)));
-														}
-													}
-												}
-												else
-												{
-													ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Presence service is unavailable"))));
-												}
-										
-												ImGui::TreePop();
-											}
-								
-											ImGui::TreePop();
-										}
+										ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("%s: %s"), *Attribute.Key.ToString(), *Attribute.Value.ToLogString())));
 									}
 									ImGui::TreePop();
 								}
-					
-								ImGui::TreePop();
 							}
 						}
 					}
+				}
+				else
+				{
+					ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Auth service is unavailable"))));
+				}
+				ImGui::TreePop();
+			}
+
+			ImGui::Separator();
+
+			if (ImGui::TreeNodeEx("Connectivity", ImGuiTreeNodeFlags_DefaultOpen))
+			{
+				if (ConnectivityService)
+				{
+					TOnlineResult<FGetConnectionStatus> GetConnectionStatusResult = ConnectivityService->GetConnectionStatus(FGetConnectionStatus::Params {});
+					if (!GetConnectionStatusResult.IsOk())
+					{
+						ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Error during GetGetConnectionStatus %s"), *ToLogString(GetConnectionStatusResult.GetErrorValue()))));
+					}
+					else
+					{
+						const EOnlineServicesConnectionStatus ConnectionStatus = GetConnectionStatusResult.GetOkValue().Status;
+						if (ConnectionStatus == EOnlineServicesConnectionStatus::Connected)
+						{
+							ImGui::TextColored(FColorToImVec4(FColorList::Green), TCHAR_TO_UTF8(*FString::Printf(TEXT("Connected"))));
+						}
+						else if (ConnectionStatus == EOnlineServicesConnectionStatus::NotConnected)
+						{
+							ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Not Connected"))));
+						}
+					}
+				}
+				else
+				{
+					ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Connectivity service is unavailable"))));
 				}
 	
 				ImGui::TreePop();
 			}
+
+			ImGui::Separator();
+
+			const FAccountId LocalAccountId = GetLocalAccountId();
+			if (LocalAccountId.IsValid())
+			{
+				if (ImGui::TreeNodeEx("Lobbies", ImGuiTreeNodeFlags_DefaultOpen))
+				{
+					check(LobbiesService);
+					TOnlineResult<FGetJoinedLobbies> JoinedLobbiesResult = LobbiesService->GetJoinedLobbies(FGetJoinedLobbies::Params { LocalAccountId });
+					if (!JoinedLobbiesResult.IsOk())
+					{
+						ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Error during GetJoinedLobbies %s"), *ToLogString(JoinedLobbiesResult.GetErrorValue()))));
+					}
+					else
+					{
+						const TArray<TSharedRef<const FLobby>>& Lobbies = JoinedLobbiesResult.GetOkValue().Lobbies;
+						if (Lobbies.IsEmpty())
+						{
+							ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("GetJoinedLobbies returned 0 lobbies"))));
+						}
+						else
+						{
+							for (const auto& Lobby : Lobbies)
+							{
+								if (ImGui::TreeNodeEx(TCHAR_TO_UTF8(*FString::Printf(TEXT("Lobby %s %s"), *Lobby->LocalName.ToString(), *ToLogString(Lobby->LobbyId))), ImGuiTreeNodeFlags_DefaultOpen))
+								{
+									ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("LocalName: %s"), *Lobby->LocalName.ToString())));
+									ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("OwnerAccountId: %s"), *ToLogString(Lobby->OwnerAccountId))));
+									ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("SchemaId: %s"), *Lobby->SchemaId.ToString())));
+									for (const auto& Attribute : Lobby->Attributes)
+									{
+										ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("%s: %s"), *Attribute.Key.ToString(), *Attribute.Value.ToLogString())));
+									}
+									if (ImGui::TreeNodeEx(TCHAR_TO_UTF8(*FString::Printf(TEXT("Members: %d"), Lobby->Members.Num())), ImGuiTreeNodeFlags_DefaultOpen))
+									{
+										TArray<FAccountId> AllAccountIds;
+										Lobby->Members.GetKeys(AllAccountIds);
+							
+										// start the async query for all of the user info and presence. we won't get the result this frame but that is okay.
+										// we shouldn't need to do this every frame, only if we can't get the info for some of the users.
+										// also, we should start this query from the session code when a new member joins the lobby.
+										if (UserInfoService)
+											UserInfoService->QueryUserInfo(FQueryUserInfo::Params {LocalAccountId, AllAccountIds});
+										// if (PresenceService)
+										// 	PresenceService->BatchQueryPresence(FBatchQueryPresence::Params { LocalAccountId, AllAccountIds, false });
+						
+										for	(const auto& Member : Lobby->Members)
+										{
+											const FAccountId AccountId = Member.Key;
+											if (ImGui::TreeNodeEx(TCHAR_TO_UTF8(*FString::Printf(TEXT("Member %s %s"), *GetUserDisplayName(AccountId), *ToLogString(AccountId))), ImGuiTreeNodeFlags_DefaultOpen))
+											{
+												ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("bIsLocalMember: %d"), Member.Value->bIsLocalMember)));
+												for (const auto& Attribute : Member.Value->Attributes)
+												{
+													ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("%s: %s"), *Attribute.Key.ToString(), *Attribute.Value.ToLogString())));
+												}
+
+												if (ImGui::TreeNodeEx(TCHAR_TO_UTF8(*FString::Printf(TEXT("Presence"))), ImGuiTreeNodeFlags_DefaultOpen))
+												{
+													if (PresenceService)
+													{
+														const TOnlineResult<FGetCachedPresence> GetCachedPresenceResult = PresenceService->GetCachedPresence(FGetCachedPresence::Params {LocalAccountId, AccountId});
+														if (GetCachedPresenceResult.IsOk())
+														{
+															const TSharedRef<const FUserPresence>& Presence = GetCachedPresenceResult.GetOkValue().Presence;
+															ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("Status: %s"), LexToString(Presence->Status))));
+															ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("GameStatus: %s"), LexToString(Presence->GameStatus))));
+															ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("Joinability %s"), LexToString(Presence->Joinability))));
+															ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("StatusString %s"), *Presence->StatusString)));
+															ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("RichPresenceString %s"), *Presence->RichPresenceString)));
+															for (const auto& Property : Presence->Properties)
+															{
+																ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("%s: %s"), *Property.Key, *Property.Value)));
+															}
+														}
+													}
+													else
+													{
+														ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Presence service is unavailable"))));
+													}
+										
+													ImGui::TreePop();
+												}
+								
+												ImGui::TreePop();
+											}
+										}
+										ImGui::TreePop();
+									}
+					
+									ImGui::TreePop();
+								}
+							}
+						}
+					}
+	
+					ImGui::TreePop();
+				}
+			}
 		}
+		ImGui::End();
 	}
-	ImGui::End();
 }
 
 #endif // !LS_USE_OSSV1

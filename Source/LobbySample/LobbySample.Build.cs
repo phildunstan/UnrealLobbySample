@@ -18,7 +18,7 @@ public class LobbySample : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
 		// if you change this you will also need to enable/disable the OnlineSubsystem and OnlineServices plugins and the BuildPackages.ps1 script
-		const LSOnlineConfigType OnlineConfig = LSOnlineConfigType.OnlineSubsystemEOS;
+		const LSOnlineConfigType OnlineConfig = LSOnlineConfigType.OnlineSubsystemSteam;
 		const bool bUseOSSV1 = (OnlineConfig == LSOnlineConfigType.OnlineSubsystemNull) || (OnlineConfig == LSOnlineConfigType.OnlineSubsystemEOS) || (OnlineConfig == LSOnlineConfigType.OnlineSubsystemSteam);
 		
 		PublicDefinitions.Add("LS_USE_OSSV1=" + (bUseOSSV1 ? "1" : "0"));
@@ -28,27 +28,38 @@ public class LobbySample : ModuleRules
 		
 		PublicIncludePaths.AddRange(new [] { "LobbySample" });
 
-		PublicDependencyModuleNames.AddRange(new [] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "ApplicationCore", "EngineSettings" });
-		PublicDependencyModuleNames.AddRange(new [] { "NetCore", "CoreOnline" });
+		PublicDependencyModuleNames.AddRange([
+			"Core",
+			"CoreUObject",
+			"Engine",
+			"InputCore",
+			"EnhancedInput",
+			"ApplicationCore",
+			"EngineSettings",
+			"NetCore",
+			"CoreOnline",
+			"UMG",
+			"Slate",
+			"SlateCore",
+			"ImGui",
+		]);
 		
 		if (bUseOSSV1)
 		{
-			PublicDependencyModuleNames.AddRange(new [] { "OnlineSubsystem", "OnlineSubsystemUtils", "OnlineSubsystemNull", "OnlineSubsystemEOS" , "OnlineSubsystemSteam" });
+			PublicDependencyModuleNames.AddRange([
+				"OnlineSubsystem",
+				"OnlineSubsystemUtils",
+				"OnlineSubsystemNull",
+				"OnlineSubsystemEOS" ,
+			]);
 		}
 		else
 		{
-			PublicDependencyModuleNames.AddRange(new [] { "OnlineServicesInterface" });
+			PublicDependencyModuleNames.AddRange(["OnlineServicesInterface"]);
 		}
 
 		// https://dev.epicgames.com/documentation/en-us/unreal-engine/online-subsystem-steam-interface-in-unreal-engine#modulesetup
 		// DynamicallyLoadedModuleNames.Add("OnlineSubsystemSteam");
-		PublicDependencyModuleNames.AddRange(new [] { "OnlineSubsystemSteam" });
-		
-		PublicDependencyModuleNames.AddRange(new [] { "UMG" });
-		PublicDependencyModuleNames.AddRange(new [] { "Slate", "SlateCore" });
-
-		PublicDependencyModuleNames.AddRange(new [] { "ImGui" });
-		// Tell the compiler we want to import the ImPlot symbols when linking against ImGui plugin 
-		PrivateDefinitions.Add(string.Format("IMPLOT_API=DLLIMPORT"));
+		PublicDependencyModuleNames.AddRange(["OnlineSubsystemSteam"]);
 	}
 }

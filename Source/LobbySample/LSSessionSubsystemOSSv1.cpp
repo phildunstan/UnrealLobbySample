@@ -225,134 +225,137 @@ void ULSSessionSubsystemOSSv1::DrawImGui()
 	if (!GetWorld())
 		return;
 	
-	static bool bShowWindow = true;
-	if (ImGui::Begin("Session Subsystem", &bShowWindow, 0))
+	if (const ImGui::FScopedContext ScopedContext; ScopedContext)
 	{
-		if (OnlineSubsystem)
-			ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("OnlineSubsystemName: %s"), *OnlineSubsystem->GetOnlineServiceName().ToString())));
-		else
-			ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("OnlineSubsystemName: None"))));
-	
-		if (ImGui::TreeNodeEx("Users", ImGuiTreeNodeFlags_DefaultOpen))
+		static bool bShowWindow = true;
+		if (ImGui::Begin("Session Subsystem", &bShowWindow, 0))
 		{
-			if (IdentityInterface.IsValid())
+			if (OnlineSubsystem)
+				ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("OnlineSubsystemName: %s"), *OnlineSubsystem->GetOnlineServiceName().ToString())));
+			else
+				ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("OnlineSubsystemName: None"))));
+	
+			if (ImGui::TreeNodeEx("Users", ImGuiTreeNodeFlags_DefaultOpen))
 			{
-				const ULocalPlayer* LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
-				const FUniqueNetIdRepl LocalUniqueNetId = LocalPlayer ? LocalPlayer->GetPreferredUniqueNetId() : FUniqueNetIdRepl();
-				const TSharedPtr<FUserOnlineAccount> LocalUserAccount = LocalUniqueNetId.IsValid() ? IdentityInterface->GetUserAccount(*LocalUniqueNetId) : TSharedPtr<FUserOnlineAccount>();
-				if (!LocalUserAccount.IsValid())
+				if (IdentityInterface.IsValid())
 				{
-					ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("No local logged in user"))));
-				}
-				else
-				{
-					DrawImGui(*LocalUserAccount);
-				}
-				
-				TArray<TSharedPtr<FUserOnlineAccount>> UserAccounts = IdentityInterface->GetAllUserAccounts();
-				if (UserAccounts.IsEmpty())
-				{
-					ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("GetAllUserAccounts returned 0 users"))));
-				}
-				else
-				{
-					for (const TSharedPtr<FUserOnlineAccount>& UserAccount : UserAccounts)
+					const ULocalPlayer* LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
+					const FUniqueNetIdRepl LocalUniqueNetId = LocalPlayer ? LocalPlayer->GetPreferredUniqueNetId() : FUniqueNetIdRepl();
+					const TSharedPtr<FUserOnlineAccount> LocalUserAccount = LocalUniqueNetId.IsValid() ? IdentityInterface->GetUserAccount(*LocalUniqueNetId) : TSharedPtr<FUserOnlineAccount>();
+					if (!LocalUserAccount.IsValid())
 					{
-						if (ImGui::TreeNodeEx(TCHAR_TO_UTF8(*FString::Printf(TEXT("UserAccount %s"), *UserAccount->GetUserId()->ToDebugString())), ImGuiTreeNodeFlags_DefaultOpen))
+						ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("No local logged in user"))));
+					}
+					else
+					{
+						DrawImGui(*LocalUserAccount);
+					}
+				
+					TArray<TSharedPtr<FUserOnlineAccount>> UserAccounts = IdentityInterface->GetAllUserAccounts();
+					if (UserAccounts.IsEmpty())
+					{
+						ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("GetAllUserAccounts returned 0 users"))));
+					}
+					else
+					{
+						for (const TSharedPtr<FUserOnlineAccount>& UserAccount : UserAccounts)
 						{
-							DrawImGui(*UserAccount);
+							if (ImGui::TreeNodeEx(TCHAR_TO_UTF8(*FString::Printf(TEXT("UserAccount %s"), *UserAccount->GetUserId()->ToDebugString())), ImGuiTreeNodeFlags_DefaultOpen))
+							{
+								DrawImGui(*UserAccount);
+								ImGui::TreePop();
+							}
+						}
+					}
+				}
+				else
+				{
+					ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Identity interface is unavailable"))));
+				}
+			
+				ImGui::TreePop();
+			}
+	
+			if (ImGui::TreeNodeEx("Session", ImGuiTreeNodeFlags_DefaultOpen))
+			{
+				if (SessionInterface.IsValid())
+				{
+					ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("%d sessions"), SessionInterface->GetNumSessions())));
+
+					if (!ActiveSessionName.IsNone())
+					{
+						if (ImGui::TreeNodeEx(TCHAR_TO_UTF8(*FString::Printf(TEXT("ActiveSession %s"), *ActiveSessionName.ToString())), ImGuiTreeNodeFlags_DefaultOpen))
+						{
+							if (const FNamedOnlineSession* Session = SessionInterface->GetNamedSession(ActiveSessionName))
+							{
+								DrawImGui(*Session);
+							}
+
 							ImGui::TreePop();
 						}
 					}
 				}
-			}
-			else
-			{
-				ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Identity interface is unavailable"))));
-			}
-			
-			ImGui::TreePop();
-		}
-	
-		if (ImGui::TreeNodeEx("Session", ImGuiTreeNodeFlags_DefaultOpen))
-		{
-			if (SessionInterface.IsValid())
-			{
-				ImGui::TextUnformatted(TCHAR_TO_UTF8(*FString::Printf(TEXT("%d sessions"), SessionInterface->GetNumSessions())));
-
-				if (!ActiveSessionName.IsNone())
+				else
 				{
-					if (ImGui::TreeNodeEx(TCHAR_TO_UTF8(*FString::Printf(TEXT("ActiveSession %s"), *ActiveSessionName.ToString())), ImGuiTreeNodeFlags_DefaultOpen))
-					{
-						if (const FNamedOnlineSession* Session = SessionInterface->GetNamedSession(ActiveSessionName))
-						{
-							DrawImGui(*Session);
-						}
-
-						ImGui::TreePop();
-					}
+					ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Session interface is unavailable"))));
 				}
-			}
-			else
-			{
-				ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Session interface is unavailable"))));
-			}
 	
-			if (PresenceInterface.IsValid())
-			{
-			}
-			else
-			{
-				ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Presence interface is unavailable"))));
-			}
+				if (PresenceInterface.IsValid())
+				{
+				}
+				else
+				{
+					ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Presence interface is unavailable"))));
+				}
 	
-			if (EventsInterface.IsValid())
-			{
-			}
-			else
-			{
-				ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Events interface is unavailable"))));
-			}
+				if (EventsInterface.IsValid())
+				{
+				}
+				else
+				{
+					ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Events interface is unavailable"))));
+				}
 	
-			if (StatsInterface.IsValid())
-			{
-			}
-			else
-			{
-				ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Stats interface is unavailable"))));
-			}
+				if (StatsInterface.IsValid())
+				{
+				}
+				else
+				{
+					ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Stats interface is unavailable"))));
+				}
 	
-			if (PartyInterface.IsValid())
-			{
-			}
-			else
-			{
-				ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Party interface is unavailable"))));
-			}
+				if (PartyInterface.IsValid())
+				{
+				}
+				else
+				{
+					ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Party interface is unavailable"))));
+				}
 	
-			if (TimeInterface.IsValid())
-			{
-			}
-			else
-			{
-				ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Time interface is unavailable"))));
-			}
+				if (TimeInterface.IsValid())
+				{
+				}
+				else
+				{
+					ImGui::TextColored(FColorToImVec4(FColorList::Orange), TCHAR_TO_UTF8(*FString::Printf(TEXT("Time interface is unavailable"))));
+				}
 	
-			ImGui::TreePop();
-		}
-
-		if (LastSessionSearch)
-		{
-			ImGui::Separator();
-		
-			if (ImGui::TreeNodeEx("Last Search Request", ImGuiTreeNodeFlags_DefaultOpen))
-			{
-				DrawImGui(*LastSessionSearch);
 				ImGui::TreePop();
 			}
+
+			if (LastSessionSearch)
+			{
+				ImGui::Separator();
+		
+				if (ImGui::TreeNodeEx("Last Search Request", ImGuiTreeNodeFlags_DefaultOpen))
+				{
+					DrawImGui(*LastSessionSearch);
+					ImGui::TreePop();
+				}
+			}
 		}
+		ImGui::End();
 	}
-	ImGui::End();
 #endif
 }
 
